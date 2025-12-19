@@ -42,6 +42,80 @@ bool OrderBook::modifyOrder(OrderId orderId, Volume newVolume) {
     return false;
 }
 
+template <class T>
+bool OrderBook::deleteOrderInMetadata(OrderId orderId, T& mData, Price price) {
+    auto erased = mOrders.erase(orderId);
+    if(erased == 0) {
+            return false;
+    }
+    auto& orderListWithPrice = mData[price];
+    for(auto it = orderListWithPrice.begin(); it != orderListWithPrice.end(); ++it) {
+        if((*it)->orderId == orderId) {
+            orderListWithPrice.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+template <class T>
+bool OrderBook::modifyOrderMetadata(OrderId orderId, T& mData, Price price, Volume newVolume) {
+    for(auto& order:mData[price]) {
+        if(order->orderId == orderId) {
+            order->volume = newVolume;
+            return true;
+        }
+    }
+    return false;
+}
+
+template <class T>
+std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderType, 
+                                const TranSide tranSide, Volume& orderVolume, 
+                                const Price price, Volume& transactedVolume, Price& totalPrice) {
+    for(auto it = mData.begin(); it != mData.end(); ++it) {
+        const Price currPrice = it->first;
+        auto& ordersList = it->second;
+        bool canTransact = true; // always true with market order
+
+        //handle limit order
+        if(orderType == OrderType::Limit) { 
+            if(tranSide == TranSide::Buy) {
+                canTransact = (offerPrice <= price);
+            } else if(tranSide == TranSide::Sell) {
+                canTransact = (offerPrice >= price);
+            }
+        }
+
+        if(canTransact) {
+            while(!ordersList.empty() && orderVolume > 0) {
+                auto& currOrder = ordersList.front();
+                const OrderId currOrderId = currOrder->orderId;
+                Volume currVolume = currOrder->volume;
+
+                if(currVolume > orderVolume) {
+                    transactedVolume += orderVolume;
+                    totalPrice += orderVolume * currPrice;
+                    currOrder->volume = currVolume - orderVolume;
+                    orderVolume = 0;
+                } else {
+                    transactedVolume += currVolume;
+                    totalPrice += currVolume * currPrice;
+                    orderVolume -= currVolume;
+                    ordersList.pop_front();
+                    mOrders.erase(currOrderId);
+                }
+            }
+            if(ordersList.empty()) {
+                ordersList.erase(it);
+            }
+        } else {
+            break;
+        }
+    }
+    return std::make_pair(totalPrice, transactedVolume);
+}
+
 Price OrderBook::getBestPrice(Side side) {
     if(side == Side::Bid) {
         return mBids.begin()->first;
