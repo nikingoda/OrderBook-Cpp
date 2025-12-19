@@ -7,38 +7,47 @@
 
 class OrderBook {
 private:
-    std::map<Price, Volume, std::greater<Price>> mBids;
-    std::map<Price, Volume, std::less<Price>> mAsks;
-    std::unordered_map<OrderId, std::pair<Side, std::pair<Price, Volume>>> mOrders;
+    //metadata to save orders' informations
+    std::map<Price, std::deque<std::unique_ptr<Order>>, std::greater<Price>> mBids;
+    std::map<Price, std::deque<std::unique_ptr<Order>>, std::less<Price>> mAsks;
+    std::unordered_map<OrderId, std::pair<Side, Price>> mOrders;
 public:
-    OrderBook(bool gen_dummies_bids){};
-
+    // OrderBook(bool gen_dummies_bids){}; //not use now
+    
     template <class T>
-    void addOrder(T& mData, Price price, Volume volume) {
-        auto [it, inserted] = mData.try_emplace(price, volume);
-        if(!inserted) {
-            it->second+=volume;
+    bool deleteOrderInMetadata(OrderId orderId, T& mData, Price price) {
+        auto erased = mOrders.erase(orderId);
+        if(erased == 0) {
+            return false;
         }
+        auto& orderListWithPrice = mData[price];
+        for(auto it = orderListWithPrice.begin(); it != orderListWithPrice.end(); it++) {
+            if((*it)->orderId == orderId) {
+                orderListWithPrice.erase(it);
+                return true;
+            }
+        }
+        return false;
     }
 
     template <class T>
-    void deleteOrder(typename T::iterator it, T& mData, Price price, Volume volume) {
-        it->second-=volume;
-        if(it->second <= 0) {
-            mData.erase(it);
+    bool modifyOrderMetadata(OrderId orderId, T& mData, Price price, Volume newVolume) {
+        for(auto& order:mData[price]) {
+            if(order->orderId == orderId) {
+                order->volume = newVolume;
+                return true;
+            }
         }
-    }
-
-    template <class T>
-    bool modifyOrder(typename T::iterator it, T& mData, Price price, Volume oldVolume, Volume newVolume) {
-        it->second+=(newVolume - oldVolume);
-        if(it->second <= 0) {
-            mData.erase(it);
-        }
+        return false;
     }
 
     void addOrder(Side side, Price price, Volume volume);
     bool modifyOrder(OrderId orderId, Volume newVolume);
     bool deleteOrder(OrderId orderId);
+
+    template <class T>
+    std::pair<Volume, Price> fillOrder(std::map<Price, std::deque<std::unique_ptr<Order>>, T>& offers,
+                                        const OrderType orderType, const TranSide side, Volume& orderVolume,
+                                        const Price price, Volume& transactedVolume, Price& totalPrice);
     Price getBestPrice(Side side);
 };

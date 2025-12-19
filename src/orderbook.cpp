@@ -14,46 +14,32 @@ void OrderBook::addOrder(Side side, Price price, Volume volume) {
     auto order = std::make_unique<Order>(side, price, volume);
     OrderId orderId = order->orderId;
     if(side == Side::Bid) {
-        mOrders[orderId] = std::make_pair(Side::Bid, std::make_pair(price, volume));
-        return OrderBook::addOrder(mBids, price, volume);
+        mOrders[orderId] = std::make_pair(Side::Bid, price);
+        mBids[orderId].push_back(std::move(order));
     } else {
-        mOrders[orderId] = std::make_pair(Side::Ask, std::make_pair(price, volume));
-        return OrderBook::addOrder(mAsks, price, volume);
+        mOrders[orderId] = std::make_pair(Side::Ask, price);
+        mAsks[orderId].push_back(std::move(order));
     }
 }
 
 bool OrderBook::deleteOrder(OrderId orderId) {
-    auto [side, price_and_volume] = mOrders[orderId];
-    auto[price, volume] = price_and_volume;
-    auto erased = mOrders.erase(orderId);
-    if(erased == 0) {
-        return false;
-    }
+    auto [ side, price ] = mOrders[orderId];
     if(side == Side::Bid) {
-        auto it = mBids.find(price);
-        deleteOrder(it, mBids, price, volume);
-    } else {
-        auto it = mAsks.find(price);
-        deleteOrder(it, mAsks, price, volume);
+        return OrderBook::deleteOrderInMetadata(orderId, mBids, price);
+    } else if(side == Side::Ask) {
+        return OrderBook::deleteOrderInMetadata(orderId, mAsks, price);
     }
-    return true;
+    return false;
 }
 
 bool OrderBook::modifyOrder(OrderId orderId, Volume newVolume) {
-    if(mOrders.find(orderId) == mOrders.end()) {
-        return false;
-    }
-    auto [side, price_and_volume] = mOrders[orderId];
-    auto[price, oldVolume] = price_and_volume;
-    mOrders[orderId].second.second = newVolume;
+    auto [ side, price ] = mOrders[orderId];
     if(side == Side::Bid) {
-        auto it = mBids.find(price);
-        modifyOrder(it, mBids, price, oldVolume, newVolume);
-    } else {
-        auto it = mAsks.find(price);
-        modifyOrder(it, mAsks, price, oldVolume, newVolume);
+        return OrderBook::modifyOrderMetadata(orderId, mBids, price, newVolume);
+    } else if(side == Side::Ask) {
+        return OrderBook::modifyOrderMetadata(orderId, mAsks, price, newVolume);
     }
-    return true;
+    return false;
 }
 
 Price OrderBook::getBestPrice(Side side) {
