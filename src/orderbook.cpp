@@ -73,6 +73,7 @@ template <class T>
 std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderType, 
                                 const TranSide tranSide, Volume& orderVolume, 
                                 const Price price, Volume& transactedVolume, Price& totalPrice) {
+    //for loop handle the case mData is empty
     for(auto it = mData.begin(); it != mData.end(); ++it) {
         const Price currPrice = it->first;
         auto& ordersList = it->second;
@@ -116,10 +117,57 @@ std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderTyp
     return std::make_pair(totalPrice, transactedVolume);
 }
 
+std::pair<Price, Volume> OrderBook::handleNewOrder(const OrderType orderType, const TranSide tranSide, 
+                                            Volume orderVolume, Price price) {
+    
+    Volume transactedVolume = 0;
+    Price totalPrice = 0;
+    
+    if(orderType == OrderType::Market) {
+        if(tranSide == TranSide::Buy) {
+            return fillOrder(mAsks, OrderType::Market, TranSide::Buy, orderVolume, price, transactedVolume, totalPrice);
+        } else if(tranSide == TranSide::Sell) {
+            return fillOrder(mBids, OrderType::Market, TranSide::Sell, orderVolume, price, transactedVolume, totalPrice);
+        }
+    } else if(orderType == OrderType::Limit) {
+        if(tranSide == TranSide::Buy) {
+            if(getBestPrice(Side::Ask) <= price) {
+                auto pair = fillOrder(mAsks, OrderType::Limit, TranSide::Buy, orderVolume, price, transactedVolume, totalPrice);
+                if(orderVolume > 0) {
+                    addOrder(Side::Bid, price, orderVolume);
+                }
+                return pair;
+            } else {
+                addOrder(Side::Bid, price, orderVolume);
+                return std::make_pair(totalPrice, transactedVolume);
+            }
+        } else if(tranSide == TranSide::Sell) {
+            if(getBestPrice(Side::Bid) >= price) {
+                auto pair = fillOrder(mBids, OrderType::Limit, TranSide::Sell, orderVolume, price, transactedVolume, totalPrice);
+                if(orderVolume > 0) {
+                    addOrder(Side::Ask, price, orderVolume);
+                }
+                return pair;
+            } else {
+                addOrder(Side::Ask, price, orderVolume);
+                return std::make_pair(totalPrice, transactedVolume);
+            }
+        }
+
+        return std::make_pair(totalPrice, transactedVolume);
+    }
+}
+
 Price OrderBook::getBestPrice(Side side) {
     if(side == Side::Bid) {
+        if(mBids.empty()) {
+            return 0;
+        }
         return mBids.begin()->first;
     } else if(side == Side::Ask) {
+        if(mAsks.empty()) {
+            return 0;
+        }
         return mAsks.begin()->first;
     }
     return 0;

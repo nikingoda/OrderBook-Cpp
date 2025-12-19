@@ -25,6 +25,8 @@ public:
                                     const TranSide tranSide, Volume& orderVolume, 
                                     const Price price, Volume& transactedVolume, Price& totalPrice);
 
+    std::pair<Price, Volume> handleNewOrder(const OrderType orderType, const TranSide tranSide, Volume orderVolume, Price price);
+
     void addOrder(Side side, Price price, Volume volume);
     bool modifyOrder(OrderId orderId, Volume newVolume);
     bool deleteOrder(OrderId orderId);
