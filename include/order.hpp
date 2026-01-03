@@ -1,4 +1,7 @@
+#pragma once
+
 #include <cstdint>
+
 #include "enums.hpp"
 #include "helpers.hpp"
 

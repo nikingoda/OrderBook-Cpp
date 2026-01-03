@@ -70,7 +70,7 @@ bool OrderBook::modifyOrderMetadata(OrderId orderId, T& mData, Price price, Volu
 }
 
 template <class T>
-std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderType, 
+std::pair<Price, Volume> OrderBook::fillOrder(std::map<Price, std::deque<std::unique_ptr<Order>>, T>& mData, const OrderType orderType, 
                                 const TranSide tranSide, Volume& orderVolume, 
                                 const Price price, Volume& transactedVolume, Price& totalPrice) {
     //for loop handle the case mData is empty
@@ -82,9 +82,9 @@ std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderTyp
         //handle limit order
         if(orderType == OrderType::Limit) { 
             if(tranSide == TranSide::Buy) {
-                canTransact = (offerPrice <= price);
+                canTransact = (currPrice <= price);
             } else if(tranSide == TranSide::Sell) {
-                canTransact = (offerPrice >= price);
+                canTransact = (currPrice >= price);
             }
         }
 
@@ -107,8 +107,8 @@ std::pair<Price, Volume> OrderBook::fillOrder(T& mData, const OrderType orderTyp
                     mOrders.erase(currOrderId);
                 }
             }
-            if(ordersList.empty()) {
-                ordersList.erase(it);
+            if(mData.empty()) {
+                it = mData.erase(it);
             }
         } else {
             break;
@@ -156,6 +156,7 @@ std::pair<Price, Volume> OrderBook::handleNewOrder(const OrderType orderType, co
 
         return std::make_pair(totalPrice, transactedVolume);
     }
+    return std::make_pair(0, 0); //handle warning, will update later
 }
 
 Price OrderBook::getBestPrice(Side side) {

@@ -1,7 +1,10 @@
+#pragma once
+
 #include <deque>
 #include <map>
 #include <unordered_map>
 #include <memory>
+
 #include "enums.hpp"
 #include "order.hpp"
 
@@ -21,11 +24,11 @@ public:
     bool modifyOrderMetadata(OrderId orderId, T& mData, Price price, Volume newVolume);
 
     template <class T>
-    std::pair<Price, Volume> fillOrder(T& mData, const OrderType orderType, 
+    std::pair<Price, Volume> fillOrder(std::map<Price, std::deque<std::unique_ptr<Order>>, T>& mData, const OrderType orderType, 
                                     const TranSide tranSide, Volume& orderVolume, 
                                     const Price price, Volume& transactedVolume, Price& totalPrice);
 
-    std::pair<Price, Volume> handleNewOrder(const OrderType orderType, const TranSide tranSide, Volume orderVolume, Price price);
+    std::pair<Price, Volume> handleNewOrder(const OrderType orderType, const TranSide tranSide, Volume orderVolume, Price price = 0);
 
     void addOrder(Side side, Price price, Volume volume);
     bool modifyOrder(OrderId orderId, Volume newVolume);
